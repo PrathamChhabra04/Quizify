@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "./ui/button";
+import { HoverBorderGradient } from "./ui/hover-border-gradient";
+import { HoverBorderGradient2 } from "./ui/hover-border-gradient2";
 
 const HeroSection = () => {
   return (
@@ -19,10 +20,14 @@ const HeroSection = () => {
         </div>
         <div className="flex justify-center space-x-4">
           <Link href="/create">
-            <Button className="px-8 py-4">Create a quiz</Button>
+            <HoverBorderGradient2 className="px-8 py-2">
+              Create quiz
+            </HoverBorderGradient2>
           </Link>
           <Link href="/attempt">
-            <Button className="px-8 py-4">Attempt a quiz</Button>
+            <HoverBorderGradient className="px-8 py-2">
+              Attempt quiz
+            </HoverBorderGradient>
           </Link>
         </div>
         <div className="hero-image-wrapper mt-5 md:mt-0">
