@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Check, X, Brain } from "lucide-react";
+import { Check, X, Brain, Loader2, Clock, Zap } from "lucide-react";
 import { saveAttempt } from "@/lib/indexedDB";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { getAIExplanation } from "@/actions/explain";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface Question {
   id: string;
@@ -14,6 +16,43 @@ interface Question {
   options: string[];
   correctAnswer: number;
 }
+
+const StatCard = ({
+  title,
+  value,
+  icon,
+  color,
+}: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  color: string;
+}) => {
+  const colors = {
+    purple: "from-purple-500 to-purple-600",
+    blue: "from-blue-500 to-blue-600",
+    green: "from-green-500 to-green-600",
+    yellow: "from-yellow-500 to-yellow-600",
+  };
+
+  return (
+    <div className="bg-gray-700/30 p-4 rounded-xl border border-gray-600/50">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className={`text-sm font-medium text-${color}-400`}>{title}</div>
+          <div className="text-2xl font-bold text-gray-100">{value}</div>
+        </div>
+        <div
+          className={`p-2 rounded-lg bg-gradient-to-br ${
+            colors[color as keyof typeof colors]
+          } text-white`}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AttemptQuiz = () => {
   const { id }: { id: string } = useParams();
@@ -148,61 +187,72 @@ const AttemptQuiz = () => {
   };
 
   const askAI = async () => {
-    setIsAskingAI(true);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const currentQ = questions[currentQuestion];
-    // Mock AI response - replace with actual Gemini API call
-    setAiResponse("This is a mock AI explanation of the correct answer...");
-    setIsAskingAI(false);
+    try {
+      setIsAskingAI(true);
+      const currentQ = questions[currentQuestion];
+      const correctAnswer = currentQ.options[currentQ.correctAnswer];
+      const explanation = await getAIExplanation(currentQ.text, correctAnswer);
+      // Mock AI response - replace with actual Gemini API call
+      setAiResponse(explanation);
+    } catch (error) {
+      setAiResponse("Error fetching explanation. Please try again." + error);
+    } finally {
+      setIsAskingAI(false);
+    }
   };
 
   if (showScore) {
     return (
-      <div className="min-h-screen pt-24">
-        <Card className="max-w-2xl mx-auto bg-gray-800/50 border-gray-700 p-8">
-          <h2 className="text-3xl font-bold text-white mb-6">Quiz Complete!</h2>
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-700/50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-300">
-                  Attempted Questions
-                </h3>
-                <p className="text-2xl font-bold text-white">
-                  {currentQuestion + 1}/{questions.length}
-                </p>
-              </div>
-              <div className="bg-gray-700/50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-300">
-                  Correct Answers
-                </h3>
-                <p className="text-2xl font-bold text-green-500">{score}</p>
-              </div>
-              <div className="bg-gray-700/50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-300">
-                  Wrong Answers
-                </h3>
-                <p className="text-2xl font-bold text-red-500">
-                  {currentQuestion + 1 - score}
-                </p>
-              </div>
-              <div className="bg-gray-700/50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-300">
-                  Avg. Time/Question
-                </h3>
-                <p className="text-2xl font-bold text-purple-500">
-                  {Math.round(
-                    timePerQuestion.reduce((a, b) => a + b, 0) /
-                      (currentQuestion + 1)
-                  )}
-                  s
-                </p>
-              </div>
+      <div className="min-h-screen pt-24 bg-gradient-to-b from-gray-900 to-gray-950 pb-10">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="max-w-2xl mx-auto px-4"
+        >
+          <Card className="bg-gray-800/50 border border-gray-700/50 backdrop-blur-sm p-8 shadow-2xl shadow-purple-500/10">
+            <div className="text-center mb-8">
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                Quiz Mastered!
+              </h2>
+              <p className="text-gray-400 mt-2">Your performance breakdown</p>
             </div>
-            <div className="bg-gray-700/50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-300 mb-2">
-                Time per Question
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <StatCard
+                title="Completed"
+                value={`${currentQuestion + 1}/${questions.length}`}
+                icon={<Check className="w-5 h-5" />}
+                color="purple"
+              />
+              <StatCard
+                title="Accuracy"
+                value={`${Math.round((score / (currentQuestion + 1)) * 100)}%`}
+                icon={<Brain className="w-5 h-5" />}
+                color="blue"
+              />
+              <StatCard
+                title="Correct"
+                value={score.toString()}
+                icon={<Check className="w-5 h-5" />}
+                color="green"
+              />
+              <StatCard
+                title="Time/Question"
+                value={`${Math.round(
+                  timePerQuestion.reduce((a, b) => a + b, 0) /
+                    (currentQuestion + 1)
+                )}s`}
+                icon={<Clock className="w-5 h-5" />}
+                color="yellow"
+              />
+            </div>
+
+            <div className="bg-gray-700/30 p-4 rounded-xl border border-gray-600/50 mb-8">
+              <h3 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-400" />
+                Performance Timeline
               </h3>
-              <div className="h-[60px] w-full">
+              <div className="h-[160px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={timePerQuestion.map((time, index) => ({
@@ -216,103 +266,175 @@ const AttemptQuiz = () => {
                       stroke="#9333ea"
                       strokeWidth={2}
                       dot={false}
+                      strokeLinecap="round"
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
+
             <Button
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-6 text-lg shadow-lg hover:shadow-purple-500/20 transition-all"
               onClick={() => router.push("/attempt")}
             >
-              Back to Quizzes
+              Explore More Quizzes
             </Button>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-24">
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <div className="flex justify-between items-center text-white mb-4">
-            <span>
-              Question {currentQuestion + 1}/{questions.length}
+    <div className="min-h-screen pt-24 bg-gradient-to-b from-gray-900 to-gray-950">
+      <div className="max-w-3xl mx-auto px-4">
+        {/* Timer Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="flex items-center justify-between text-gray-300 mb-3">
+            <span className="text-sm font-medium">
+              Question {currentQuestion + 1} of {questions.length}
             </span>
-            <span className="text-xl font-bold">{timer}s</span>
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-purple-400" />
+              <span className="text-xl font-bold">{timer}s</span>
+            </div>
           </div>
-          <Progress value={(timer / 30) * 100} className="h-2 bg-gray-700" />
-        </div>
-        <Card className="bg-gray-800/50 border-gray-700 p-6 mb-6">
-          <h2 className="text-xl font-bold text-white mb-6">
-            {questions[currentQuestion]?.text}
-          </h2>
-          <div className="space-y-4">
-            {questions[currentQuestion]?.options.map((option, index) => (
-              <button
-                key={index}
-                onClick={() => handleOptionSelect(index)}
-                className={`w-full p-4 rounded-lg text-left transition-all duration-300 ${
-                  selectedOption === null
-                    ? "bg-gray-700/50 hover:bg-gray-700 text-white"
-                    : selectedOption === index
-                    ? index === questions[currentQuestion].correctAnswer
-                      ? "bg-green-600/20 border-green-500 text-green-500"
-                      : "bg-red-600/20 border-red-500 text-red-500"
-                    : "bg-gray-700/50 text-gray-400"
-                } border ${
-                  selectedOption !== null &&
-                  index === questions[currentQuestion].correctAnswer
-                    ? "border-green-500"
-                    : "border-transparent"
-                }`}
-                disabled={selectedOption !== null}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{option}</span>
-                  {selectedOption !== null &&
-                    (index === questions[currentQuestion].correctAnswer ? (
-                      <Check className="text-green-500" />
-                    ) : selectedOption === index ? (
-                      <X className="text-red-500" />
-                    ) : null)}
-                </div>
-              </button>
-            ))}
+          <div className="relative h-2.5 bg-gray-800/50 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
+              initial={{ width: "100%" }}
+              animate={{ width: `${(timer / 30) * 100}%` }}
+              transition={{ duration: 1, ease: "linear" }}
+            />
           </div>
-        </Card>
-        {aiResponse && (
-          <Card className="bg-gray-800/50 border-gray-700 p-4 mb-6">
-            <p className="text-white">{aiResponse}</p>
+        </motion.div>
+
+        {/* Question Card */}
+        <motion.div
+          key={currentQuestion}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Card className="bg-gray-800/30 border border-gray-700/50 backdrop-blur-sm p-6 shadow-lg">
+            <h2 className="text-xl font-semibold text-gray-100 mb-6">
+              {questions[currentQuestion]?.text}
+            </h2>
+
+            <div className="space-y-3">
+              {questions[currentQuestion]?.options.map((option, index) => {
+                const isCorrect =
+                  index === questions[currentQuestion].correctAnswer;
+                const isSelected = selectedOption === index;
+                const showCorrect = selectedOption !== null && isCorrect;
+
+                return (
+                  <motion.button
+                    key={index}
+                    onClick={() => handleOptionSelect(index)}
+                    disabled={selectedOption !== null}
+                    className={cn(
+                      "w-full p-4 rounded-xl text-left transition-all flex items-center justify-between",
+                      "border-2 hover:border-purple-400/30",
+                      selectedOption === null
+                        ? "bg-gray-700/50 border-gray-600/50 hover:bg-gray-700/70"
+                        : isSelected
+                        ? isCorrect
+                          ? "bg-green-500/10 border-green-400/50"
+                          : "bg-red-500/10 border-red-400/50"
+                        : showCorrect
+                        ? "bg-green-500/10 border-green-400/50"
+                        : "bg-gray-700/50 border-gray-600/50"
+                    )}
+                  >
+                    <span className="text-gray-100">{option}</span>
+                    {selectedOption !== null && (
+                      <AnimatePresence>
+                        {isSelected ? (
+                          isCorrect ? (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="text-green-400"
+                            >
+                              <Check className="w-5 h-5" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="text-red-400"
+                            >
+                              <X className="w-5 h-5" />
+                            </motion.div>
+                          )
+                        ) : showCorrect ? (
+                          <Check className="w-5 h-5 text-green-400" />
+                        ) : null}
+                      </AnimatePresence>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
           </Card>
-        )}
-        <div className="flex justify-between gap-4">
+        </motion.div>
+
+        {/* AI Explanation */}
+        <AnimatePresence>
+          {aiResponse && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mb-6"
+            >
+              <Card className="bg-gray-800/30 border border-purple-500/20 p-4 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Brain className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    {aiResponse}
+                  </p>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Control Buttons */}
+        <div className="flex gap-4">
           <Button
             variant="outline"
-            className="flex-1 border-purple-600 text-purple-600 hover:bg-purple-600/20"
+            className="flex-1 border-gray-600/50 text-gray-300 hover:bg-gray-700/30 hover:border-purple-400/30"
             onClick={endQuiz}
           >
             End Quiz
           </Button>
+
           <Button
-            variant="outline"
-            className="border-purple-600 text-purple-600 hover:bg-purple-600/20"
+            className="border-gray-600/50 text-gray-800 hover:bg-gray-700/30 hover:border-purple-400/30 hover:text-gray-300"
             onClick={askAI}
             disabled={isAskingAI || selectedOption === null}
           >
-            <Brain className="mr-2" size={16} />
-            Ask AI
+            {isAskingAI ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Brain className="w-5 h-5" />
+            )}
           </Button>
+
           <Button
-            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
             onClick={handleNextQuestion}
             disabled={selectedOption === null}
           >
-            {currentQuestion === questions.length - 1
-              ? "Finish"
-              : "Next Question"}
+            {currentQuestion === questions.length - 1 ? "Finish" : "Next"}
           </Button>
         </div>
       </div>
