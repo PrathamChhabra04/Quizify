@@ -63,6 +63,7 @@ A modern quiz platform for creating, attempting, and analyzing interactive quizz
   NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
   NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
   GEMINI_API_KEY=your_gemini_key
+  ```
 
 4. **Run Development Server**
    ```bash
@@ -93,15 +94,3 @@ A modern quiz platform for creating, attempting, and analyzing interactive quizz
 - Data persists per browser/device
 
 - Clear storage on browser reset
-
-# 🔮 Roadmap
-
-- Full database integration
-
-- Social sharing features
-
-- Quiz categorization system
-
-- Progressive Web App support
-
-- Real-time multiplayer quizzes
