@@ -1,36 +1,107 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quizify 🧠
 
-## Getting Started
+A modern quiz platform for creating, attempting, and analyzing interactive quizzes with AI-powered explanations.
 
-First, run the development server:
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-purple?style=for-the-badge&logo=vercel)](https://quizify-one.vercel.app/)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Quiz Creation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Multiple Question Types**: Create MCQs or Integer-based questions
+- **Flexible Configuration**: Set time limits per question (30-300 seconds)
+- **Draft System**: Save in-progress quizzes (UI placeholder)
+- **Publishing**: Share quizzes publicly (UI placeholder)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Quiz Attempt
 
-## Learn More
+- ⏳ Interactive timer for each question
+- 🧠 AI Explanation integration (Gemini API)
+- ✅ Instant answer validation
+- 📊 Performance tracking with IndexedDB
 
-To learn more about Next.js, take a look at the following resources:
+### Post-Quiz Analysis
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 📈 Interactive time-per-question chart
+- 🏆 Accuracy statistics & score breakdown
+- 📚 Attempt history tracking
+- 🥇 Leaderboard with historical performance
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Security & Auth
 
-## Deploy on Vercel
+- 🔐 Clerk authentication integration
+- 👤 User session management
+- 🛡️ Secure API key handling
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠️ Tech Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework**: [Next.js](https://nextjs.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Auth**: [Clerk](https://clerk.dev/)
+- **Database**: Browser [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
+- **AI**: [Google Gemini](https://ai.google.dev/)
+- **Charting**: [Recharts](https://recharts.org/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+
+## 🚀 Local Installation
+
+1. **Clone Repository**
+   ```bash
+   git clone https://github.com/PrathamChhabra04/quizify.git
+   cd quizify
+   ```
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+3. **Environment Setup**
+
+- Create .env.local file with:
+  ```bash
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_pub_key
+  CLERK_SECRET_KEY=your_clerk_secret_key
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+  GEMINI_API_KEY=your_gemini_key
+
+4. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
+5. **Access Application**
+
+- Open http://localhost:3000
+
+# 📌 Important Notes
+
+1. **Clerk Setup Required**
+
+- Create account at Clerk.dev
+
+- Configure social providers/email auth
+
+- Add callback URLs in Clerk dashboard
+
+2. **Gemini API Key**
+
+- Obtain from Google AI Studio
+
+3. **Local Storage**
+
+- All quiz data stored in browser's IndexedDB
+
+- Data persists per browser/device
+
+- Clear storage on browser reset
+
+# 🔮 Roadmap
+
+- Full database integration
+
+- Social sharing features
+
+- Quiz categorization system
+
+- Progressive Web App support
+
+- Real-time multiplayer quizzes
