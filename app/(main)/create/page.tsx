@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Clock, Plus, X, CheckSquare, Hash, Zap, Save } from "lucide-react"; // Added icons
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
+import { saveQuiz } from "@/lib/indexedDB";
+import { useRouter } from "next/navigation";
 
 type QuizType = "mcq" | "integer";
 
@@ -33,6 +35,10 @@ const CreateQuiz = () => {
   const [questions, setQuestions] = useState<(MCQQuestion | IntegerQuestion)[]>(
     []
   );
+
+  const router = useRouter();
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAddOption = () => {
     if (newOption.trim()) {
@@ -69,6 +75,49 @@ const CreateQuiz = () => {
     setOptions([]);
     setCorrectAnswer("");
     setShowQuestionForm(false);
+  };
+
+  // Helper to map local questions to QuizData structure
+  const mapQuestions = () =>
+    questions.map((q) => {
+      if ("options" in q) {
+        return {
+          text: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          type: "mcq" as const,
+        };
+      } else {
+        return {
+          text: q.question,
+          correctAnswer: q.correctAnswer,
+          type: "integer" as const,
+        };
+      }
+    });
+
+  // Publish Quiz Handler
+  const handlePublishQuiz = async () => {
+    setIsPublishing(true);
+    setError(null);
+    try {
+      // Generate unique ID (use crypto.randomUUID if available, else fallback)
+      const id = typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2) + Date.now();
+      const quiz = {
+        id,
+        title: quizTitle,
+        questions: mapQuestions(),
+      };
+      await saveQuiz(quiz);
+      alert("Quiz published successfully!");
+      router.push("/attempt");
+    } catch (err) {
+      setError("Failed to publish quiz. Please try again.");
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -372,11 +421,18 @@ const CreateQuiz = () => {
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
               </Button>
-              <Button className="bg-purple-600/30 border border-purple-500 text-purple-300 hover:bg-purple-600/40">
+              <Button
+                className="bg-purple-600/30 border border-purple-500 text-purple-300 hover:bg-purple-600/40"
+                onClick={handlePublishQuiz}
+                disabled={isPublishing}
+              >
                 <Zap className="h-4 w-4 mr-2" />
-                Publish Quiz
+                {isPublishing ? "Publishing..." : "Publish Quiz"}
               </Button>
             </div>
+          )}
+          {error && (
+            <div className="mt-4 text-red-400 text-center">{error}</div>
           )}
         </motion.div>
       </div>

@@ -4,18 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check, X, Brain, Loader2, Clock, Zap } from "lucide-react";
-import { saveAttempt } from "@/lib/indexedDB";
+import { saveAttempt, getQuizById } from "@/lib/indexedDB";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { getAIExplanation } from "@/actions/explain";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-
-interface Question {
-  id: string;
-  text: string;
-  options: string[];
-  correctAnswer: number;
-}
 
 const StatCard = ({
   title,
@@ -57,9 +50,13 @@ const StatCard = ({
 const AttemptQuiz = () => {
   const { id }: { id: string } = useParams();
   const router = useRouter();
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [quizTitle, setQuizTitle] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [integerAnswer, setIntegerAnswer] = useState<string>("");
   const [timer, setTimer] = useState(30);
   const [timePerQuestion, setTimePerQuestion] = useState<number[]>([]);
   const [score, setScore] = useState(0);
@@ -68,74 +65,21 @@ const AttemptQuiz = () => {
   const [aiResponse, setAiResponse] = useState("");
 
   useEffect(() => {
-    // Sample quiz data
-    setQuestions([
-      {
-        id: "1",
-        text: "Which planet is closest to the Sun?",
-        options: ["Venus", "Mercury", "Earth", "Mars"],
-        correctAnswer: 1,
-      },
-      {
-        id: "2",
-        text: "Which data structure organizes items in a First-In, First-Out (FIFO) manner?",
-        options: ["Stack", "Queue", "Tree", "Graph"],
-        correctAnswer: 1,
-      },
-      {
-        id: "3",
-        text: "Which of the following is primarily used for structuring web pages?",
-        options: ["Python", "Java", "HTML", "C++"],
-        correctAnswer: 2,
-      },
-      {
-        id: "4",
-        text: "Which chemical symbol stands for Gold?",
-        options: ["Au", "Gd", "Ag", "Pt"],
-        correctAnswer: 0,
-      },
-      {
-        id: "5",
-        text: "Which of these processes is not typically involved in refining petroleum?",
-        options: [
-          "Fractional distillation",
-          "Cracking",
-          "Polymerization",
-          "Filtration",
-        ],
-        correctAnswer: 3,
-      },
-      {
-        id: "6",
-        text: "What is the value of 12 + 28?",
-        options: ["38", "40", "42", "44"],
-        correctAnswer: 1,
-      },
-      {
-        id: "7",
-        text: "How many states are there in the United States?",
-        options: ["48", "49", "50", "51"],
-        correctAnswer: 2,
-      },
-      {
-        id: "8",
-        text: "In which year was the Declaration of Independence signed?",
-        options: ["1774", "1775", "1776", "1777"],
-        correctAnswer: 2,
-      },
-      {
-        id: "9",
-        text: "What is the value of pi rounded to the nearest integer?",
-        options: ["2", "3", "4", "5"],
-        correctAnswer: 1,
-      },
-      {
-        id: "10",
-        text: "If a car travels at 60 mph for 2 hours, how many miles does it travel?",
-        options: ["100", "110", "120", "130"],
-        correctAnswer: 2,
-      },
-    ]);
+    setLoading(true);
+    setError(null);
+    getQuizById(id)
+      .then((quiz) => {
+        if (!quiz) {
+          setError("Quiz not found.");
+          setQuestions([]);
+          setQuizTitle("");
+        } else {
+          setQuestions(quiz.questions);
+          setQuizTitle(quiz.title);
+        }
+      })
+      .catch(() => setError("Failed to load quiz."))
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -153,7 +97,25 @@ const AttemptQuiz = () => {
   const handleOptionSelect = (optionIndex: number) => {
     if (selectedOption !== null) return;
     setSelectedOption(optionIndex);
-    if (optionIndex === questions[currentQuestion].correctAnswer) {
+    if (questions[currentQuestion].type === "mcq") {
+      if (
+        questions[currentQuestion].options &&
+        questions[currentQuestion].options[optionIndex] ===
+          questions[currentQuestion].correctAnswer
+      ) {
+        setScore((s) => s + 1);
+      }
+    }
+    setTimePerQuestion((prev) => [...prev, 30 - timer]);
+  };
+
+  const handleIntegerSubmit = () => {
+    if (selectedOption !== null) return;
+    setSelectedOption(0); // Just to lock the answer
+    if (
+      String(questions[currentQuestion].correctAnswer) ===
+      integerAnswer.trim()
+    ) {
       setScore((s) => s + 1);
     }
     setTimePerQuestion((prev) => [...prev, 30 - timer]);
@@ -164,6 +126,7 @@ const AttemptQuiz = () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((c) => c + 1);
       setSelectedOption(null);
+      setIntegerAnswer("");
       setTimer(30);
       setAiResponse("");
     } else {
@@ -175,7 +138,7 @@ const AttemptQuiz = () => {
     setShowScore(true);
     const attemptData = {
       quizId: id!,
-      quizTitle: "Sample Quiz",
+      quizTitle: quizTitle,
       userName: "User",
       score: (score / questions.length) * 100, // Calculate percentage based on total questions
       attemptedQuestions: currentQuestion + 1,
@@ -190,8 +153,11 @@ const AttemptQuiz = () => {
     try {
       setIsAskingAI(true);
       const currentQ = questions[currentQuestion];
-      const correctAnswer = currentQ.options[currentQ.correctAnswer];
-      const explanation = await getAIExplanation(currentQ.text, correctAnswer);
+      let correctAnswer = currentQ.correctAnswer;
+      if (currentQ.type === "mcq" && currentQ.options) {
+        correctAnswer = currentQ.correctAnswer;
+      }
+      const explanation = await getAIExplanation(currentQ.text, String(correctAnswer));
       // Mock AI response - replace with actual Gemini API call
       setAiResponse(explanation);
     } catch (error) {
@@ -200,6 +166,21 @@ const AttemptQuiz = () => {
       setIsAskingAI(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-950">
+        <span className="text-gray-400">Loading quiz...</span>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-950">
+        <span className="text-red-400">{error}</span>
+      </div>
+    );
+  }
 
   if (showScore) {
     return (
@@ -325,62 +306,92 @@ const AttemptQuiz = () => {
               {questions[currentQuestion]?.text}
             </h2>
 
-            <div className="space-y-3">
-              {questions[currentQuestion]?.options.map((option, index) => {
-                const isCorrect =
-                  index === questions[currentQuestion].correctAnswer;
-                const isSelected = selectedOption === index;
-                const showCorrect = selectedOption !== null && isCorrect;
+            {/* Render MCQ or Integer type */}
+            {questions[currentQuestion]?.type === "mcq" && questions[currentQuestion]?.options ? (
+              <div className="space-y-3">
+                {questions[currentQuestion].options.map((option: string, index: number) => {
+                  const isCorrect =
+                    option === questions[currentQuestion].correctAnswer;
+                  const isSelected = selectedOption === index;
+                  const showCorrect = selectedOption !== null && isCorrect;
 
-                return (
-                  <motion.button
-                    key={index}
-                    onClick={() => handleOptionSelect(index)}
-                    disabled={selectedOption !== null}
-                    className={cn(
-                      "w-full p-4 rounded-xl text-left transition-all flex items-center justify-between",
-                      "border-2 hover:border-purple-400/30",
-                      selectedOption === null
-                        ? "bg-gray-700/50 border-gray-600/50 hover:bg-gray-700/70"
-                        : isSelected
-                        ? isCorrect
+                  return (
+                    <motion.button
+                      key={index}
+                      onClick={() => handleOptionSelect(index)}
+                      disabled={selectedOption !== null}
+                      className={cn(
+                        "w-full p-4 rounded-xl text-left transition-all flex items-center justify-between",
+                        "border-2 hover:border-purple-400/30",
+                        selectedOption === null
+                          ? "bg-gray-700/50 border-gray-600/50 hover:bg-gray-700/70"
+                          : isSelected
+                          ? isCorrect
+                            ? "bg-green-500/10 border-green-400/50"
+                            : "bg-red-500/10 border-red-400/50"
+                          : showCorrect
                           ? "bg-green-500/10 border-green-400/50"
-                          : "bg-red-500/10 border-red-400/50"
-                        : showCorrect
-                        ? "bg-green-500/10 border-green-400/50"
-                        : "bg-gray-700/50 border-gray-600/50"
+                          : "bg-gray-700/50 border-gray-600/50"
+                      )}
+                    >
+                      <span className="text-gray-100">{option}</span>
+                      {selectedOption !== null && (
+                        <AnimatePresence>
+                          {isSelected ? (
+                            isCorrect ? (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="text-green-400"
+                              >
+                                <Check className="w-5 h-5" />
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="text-red-400"
+                              >
+                                <X className="w-5 h-5" />
+                              </motion.div>
+                            )
+                          ) : showCorrect ? (
+                            <Check className="w-5 h-5 text-green-400" />
+                          ) : null}
+                        </AnimatePresence>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input
+                  type="number"
+                  className="w-full p-4 rounded-xl bg-gray-700/50 border border-gray-600/50 text-gray-100 mb-2"
+                  placeholder="Enter your answer"
+                  value={integerAnswer}
+                  onChange={(e) => setIntegerAnswer(e.target.value)}
+                  disabled={selectedOption !== null}
+                />
+                <Button
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                  onClick={handleIntegerSubmit}
+                  disabled={selectedOption !== null || integerAnswer.trim() === ""}
+                >
+                  Submit Answer
+                </Button>
+                {selectedOption !== null && (
+                  <div className="mt-2">
+                    {String(questions[currentQuestion].correctAnswer) === integerAnswer.trim() ? (
+                      <span className="text-green-400">Correct!</span>
+                    ) : (
+                      <span className="text-red-400">Incorrect. Correct answer: {questions[currentQuestion].correctAnswer}</span>
                     )}
-                  >
-                    <span className="text-gray-100">{option}</span>
-                    {selectedOption !== null && (
-                      <AnimatePresence>
-                        {isSelected ? (
-                          isCorrect ? (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="text-green-400"
-                            >
-                              <Check className="w-5 h-5" />
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="text-red-400"
-                            >
-                              <X className="w-5 h-5" />
-                            </motion.div>
-                          )
-                        ) : showCorrect ? (
-                          <Check className="w-5 h-5 text-green-400" />
-                        ) : null}
-                      </AnimatePresence>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </div>
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         </motion.div>
 

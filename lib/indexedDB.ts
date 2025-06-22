@@ -1,6 +1,7 @@
 const DB_NAME = "QuizDB";
 const DB_VERSION = 1;
 const ATTEMPTS_STORE = "attempts";
+const QUIZZES_STORE = "quizzes";
 
 interface AttemptData {
   id?: number;
@@ -12,6 +13,19 @@ interface AttemptData {
   totalQuestions: number;
   timePerQuestion: number[];
   date: string;
+}
+
+export interface QuizQuestion {
+  text: string;
+  options?: string[]; // Only for MCQ
+  correctAnswer: string | number;
+  type: "mcq" | "integer";
+}
+
+export interface QuizData {
+  id: string;
+  title: string;
+  questions: QuizQuestion[];
 }
 
 export const initDB = () => {
@@ -30,6 +44,9 @@ export const initDB = () => {
         });
         store.createIndex("quizId", "quizId", { unique: false });
         store.createIndex("date", "date", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(QUIZZES_STORE)) {
+        db.createObjectStore(QUIZZES_STORE, { keyPath: "id" });
       }
     };
   });
@@ -62,6 +79,39 @@ export const getAttempts = async (quizId?: string) => {
         resolve(attempts);
       }
     };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const saveQuiz = async (quiz: QuizData) => {
+  const db = (await initDB()) as IDBDatabase;
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(QUIZZES_STORE, "readwrite");
+    const store = transaction.objectStore(QUIZZES_STORE);
+    const request = store.put(quiz);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const getAllQuizzes = async (): Promise<QuizData[]> => {
+  const db = (await initDB()) as IDBDatabase;
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(QUIZZES_STORE, "readonly");
+    const store = transaction.objectStore(QUIZZES_STORE);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const getQuizById = async (id: string): Promise<QuizData | undefined> => {
+  const db = (await initDB()) as IDBDatabase;
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(QUIZZES_STORE, "readonly");
+    const store = transaction.objectStore(QUIZZES_STORE);
+    const request = store.get(id);
+    request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 };

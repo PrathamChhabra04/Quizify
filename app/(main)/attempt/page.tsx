@@ -10,7 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Award, Clock, User, Brain, Star, Zap } from "lucide-react";
-import { initDB, getAttempts } from "@/lib/indexedDB";
+import { getAllQuizzes, getAttempts } from "@/lib/indexedDB";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -27,53 +27,37 @@ interface Quiz {
 
 const QuizList = () => {
   const router = useRouter();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
 
   useEffect(() => {
-    initDB().then(() => {
-      const mockQuizzes = [
-        {
-          id: "1",
-          title: "Space Exploration",
-          createdBy: "Cosmic Academy",
-          totalQuestions: 10,
-          // eslint-disable-next-line @typescript-eslint/prefer-as-const
-          difficulty: "medium" as "medium",
-        },
-        {
-          id: "2",
-          title: "Computer Science Basics",
-          createdBy: "Tech Institute",
-          totalQuestions: 15,
-          // eslint-disable-next-line @typescript-eslint/prefer-as-const
-          difficulty: "easy" as "easy",
-        },
-        {
-          id: "3",
-          title: "Advanced Chemistry",
-          createdBy: "Science Lab",
-          totalQuestions: 12,
-          // eslint-disable-next-line @typescript-eslint/prefer-as-const
-          difficulty: "hard" as "hard",
-        },
-      ];
-
-      Promise.all(
-        mockQuizzes.map(async (quiz) => {
-          const attempts = await getAttempts(quiz.id);
-          return {
-            ...quiz,
-            attempts: attempts.length,
-            maxScore:
-              attempts.length > 0
-                ? Math.max(...attempts.map((a) => a.score))
-                : undefined,
-          };
-        })
-      ).then(setQuizzes);
-    });
+    setLoading(true);
+    setError(null);
+    getAllQuizzes()
+      .then(async (quizzes) => {
+        // For each quiz, get attempts and add attempts/maxScore
+        const quizzesWithStats = await Promise.all(
+          quizzes.map(async (quiz: any) => {
+            const attempts = await getAttempts(quiz.id);
+            return {
+              ...quiz,
+              createdBy: "Anonymous", // Placeholder, as not in schema
+              totalQuestions: quiz.questions.length,
+              attempts: attempts.length,
+              maxScore:
+                attempts.length > 0
+                  ? Math.max(...attempts.map((a) => a.score))
+                  : undefined,
+            };
+          })
+        );
+        setQuizzes(quizzesWithStats);
+      })
+      .catch(() => setError("Failed to load quizzes."))
+      .finally(() => setLoading(false));
   }, []);
 
   const DifficultyBadge = ({ difficulty }: { difficulty: string }) => {
@@ -105,6 +89,9 @@ const QuizList = () => {
         >
           Discover Quizzes
         </motion.h1>
+
+        {loading && <div className="text-center text-gray-400">Loading quizzes...</div>}
+        {error && <div className="text-center text-red-400">{error}</div>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {quizzes.map((quiz, index) => (
